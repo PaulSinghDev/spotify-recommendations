@@ -7,12 +7,26 @@
 import { RemixBrowser } from "@remix-run/react";
 import { startTransition, StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
+import { clearBrowserExtensionInjectionsBeforeHydration } from "~/lib/clearBrowserExtensionBeforeHydration";
 
 startTransition(() => {
-  hydrateRoot(
+  clearBrowserExtensionInjectionsBeforeHydration();
+
+  const root = hydrateRoot(
     document,
     <StrictMode>
       <RemixBrowser />
-    </StrictMode>
+    </StrictMode>,
+    {
+      onRecoverableError: () => {
+        console.log("Hydration failed! Attempting recovery...");
+        root.render(
+          <StrictMode>
+            <RemixBrowser />
+          </StrictMode>
+        );
+        console.info("Recovery successful!");
+      },
+    }
   );
 });
