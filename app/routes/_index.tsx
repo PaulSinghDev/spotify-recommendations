@@ -489,8 +489,11 @@ export default function Index() {
       {/* Audio Features */}
       {audioFeatures ? (
         <div className="flex flex-col p-8">
-          <div className="flex gap-4">
-            <h2 className="font-bold text-2xl mb-2">Audio Features</h2>
+          <div className="p-8 max-w-[600px] font-thin text-xl text-center mx-auto my-12">
+            <h3 className="font-bold text-4xl mb-4">Audio Features</h3>
+            Use the section below to select your audio featured as per
+            Spotify&apos;s classification. The figures below have been generated
+            automatically based on your recent listening history.
           </div>
           <ul className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 bg-slate-700 p-6 rounded-md">
             {audioFeatures
@@ -525,6 +528,14 @@ export default function Index() {
           </ul>
         </div>
       ) : null}
+
+      <div className="p-8 max-w-[600px] font-thin text-xl text-center mx-auto my-12">
+        <h3 className="font-bold text-4xl mb-4">Select Seed Items</h3>
+        Use the section below to select your seed items. The seed items are used
+        to create your recommendations. You are able to select a total of 5
+        items (this is a limitation in Spotify&apos;s API). For example, you
+        could select two artists, two tracks and one genre.
+      </div>
 
       <div className="flex flex-col gap-4">
         {topTracks.length && topArtists.length && genres.length ? (
