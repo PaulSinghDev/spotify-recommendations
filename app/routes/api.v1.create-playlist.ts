@@ -56,5 +56,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // get the response
   const res = await updatePlaylistRequest.json();
 
-  return json({ success: true, data: [res] }, 200);
+  return json(
+    {
+      success: true,
+      data: [{ updateResponse: res, createResponse: createPlaylistResponse }],
+    },
+    200
+  );
 };
