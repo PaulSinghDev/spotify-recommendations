@@ -71,14 +71,14 @@ export default function Index() {
   const user = data?.session?.user;
 
   return (
-    <main className="bg-gradient-to-br from-zinc-900 to-zinc-950 min-h-screen text-white">
+    <main className="bg-gradient-to-br from-zinc-900 to-zinc-950 min-h-screen text-white max-w-full">
       {playlistCreated ? <ReactConfetti style={{ zIndex: 100 }} /> : null}
       <header className="px-8 pt-24 flex flex-col items-center">
-        <div className="max-w-[600px]">
-          <h2 className="text-5xl font-bold text-pretty mb-4">
+        <div className="max-w-[600px] w-full">
+          <h2 className="text-4xl md:text-5xl font-bold text-pretty mb-4">
             Spotify Song Recommendations
           </h2>
-          <p className="font-light">
+          <p className="font-thin">
             Get song recommendations based on your recent listening history or,
             you know, just put some shit in some boxes and press go!
           </p>
@@ -86,7 +86,7 @@ export default function Index() {
             <Form
               action={user ? "/logout" : "/auth/spotify"}
               method="post"
-              className="text-left grow flex"
+              className="text-left grow flex max-w-full"
             >
               <Button
                 variant={user ? "destructive" : "positive"}
@@ -489,7 +489,7 @@ export default function Index() {
       {/* Audio Features */}
       {audioFeatures ? (
         <div className="flex flex-col p-8">
-          <div className="p-8 max-w-[600px] font-thin text-xl text-center mx-auto my-12">
+          <div className="max-w-[600px] font-thin text-xl mx-auto my-8">
             <h3 className="font-bold text-4xl mb-4">Audio Features</h3>
             Use the section below to select your audio featured as per
             Spotify&apos;s classification. The figures below have been generated
@@ -529,17 +529,16 @@ export default function Index() {
         </div>
       ) : null}
 
-      <div className="p-8 max-w-[600px] font-thin text-xl text-center mx-auto my-12">
-        <h3 className="font-bold text-4xl mb-4">Select Seed Items</h3>
-        Use the section below to select your seed items. The seed items are used
-        to create your recommendations. You are able to select a total of 5
-        items (this is a limitation in Spotify&apos;s API). For example, you
-        could select two artists, two tracks and one genre.
-      </div>
-
       <div className="flex flex-col gap-4">
         {topTracks.length && topArtists.length && genres.length ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-8 max-w-[600px] font-thin text-xl mx-auto mt-12 col-span-full">
+              <h3 className="font-bold text-4xl mb-4">Select Seed Items</h3>
+              Use the section below to select your seed items. The seed items
+              are used to create your recommendations. You are able to select a
+              total of 5 items (this is a limitation in Spotify&apos;s API). For
+              example, you could select two artists, two tracks and one genre.
+            </div>
             {/* Seed Tracks */}
             {
               <div className="flex flex-col p-8">
