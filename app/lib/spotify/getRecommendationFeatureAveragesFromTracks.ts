@@ -123,8 +123,9 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.acousticness.average !== "undefined" &&
       typeof output.acousticness.sum !== "undefined"
     ) {
-      output.acousticness.average =
-        Math.round((output.acousticness.sum / (i + 1)) * 100) / 100;
+      output.acousticness.average = Math.round(
+        (output.acousticness.sum / (i + 1)) * 100
+      );
     }
 
     // danceability
@@ -150,8 +151,9 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.danceability.average !== "undefined" &&
       typeof output.danceability.sum !== "undefined"
     ) {
-      output.danceability.average =
-        Math.round((output.danceability.sum / (i + 1)) * 100) / 100;
+      output.danceability.average = Math.round(
+        (output.danceability.sum / (i + 1)) * 100
+      );
     }
 
     // energy
@@ -177,8 +179,7 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.energy.average !== "undefined" &&
       typeof output.energy.sum !== "undefined"
     ) {
-      output.energy.average =
-        Math.round((output.energy.sum / (i + 1)) * 100) / 100;
+      output.energy.average = Math.round((output.energy.sum / (i + 1)) * 100);
     }
 
     // instrumentalness
@@ -204,8 +205,9 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.instrumentalness.average !== "undefined" &&
       typeof output.instrumentalness.sum !== "undefined"
     ) {
-      output.instrumentalness.average =
-        Math.round((output.instrumentalness.sum / (i + 1)) * 100) / 100;
+      output.instrumentalness.average = Math.round(
+        (output.instrumentalness.sum / (i + 1)) * 100
+      );
     }
 
     // liveness
@@ -231,8 +233,9 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.liveness.average !== "undefined" &&
       typeof output.liveness.sum !== "undefined"
     ) {
-      output.liveness.average =
-        Math.round((output.liveness.sum / (i + 1)) * 100) / 100;
+      output.liveness.average = Math.round(
+        (output.liveness.sum / (i + 1)) * 100
+      );
     }
 
     // key
@@ -310,8 +313,9 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.speechiness.average !== "undefined" &&
       typeof output.speechiness.sum !== "undefined"
     ) {
-      output.speechiness.average =
-        Math.round((output.speechiness.sum / (i + 1)) * 100) / 100;
+      output.speechiness.average = Math.round(
+        (output.speechiness.sum / (i + 1)) * 100
+      );
     }
 
     // valence
@@ -337,8 +341,7 @@ export const getRecommendationFeatureAveragesFromTracks = (
       typeof output.valence.average !== "undefined" &&
       typeof output.valence.sum !== "undefined"
     ) {
-      output.valence.average =
-        Math.round((output.valence.sum / (i + 1)) * 100) / 100;
+      output.valence.average = Math.round((output.valence.sum / (i + 1)) * 100);
     }
   }
 

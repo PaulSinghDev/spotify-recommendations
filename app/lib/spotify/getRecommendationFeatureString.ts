@@ -23,7 +23,12 @@ export const getRecommendationFeaturesString = (
     ) {
       output.append(`min_${key}`, data.min.toString());
       output.append(`max_${key}`, data.max.toString());
-      output.append(`target_${key}`, data.average.toString());
+      output.append(
+        `target_${key}`,
+        key !== "popularity" && key !== "key"
+          ? (data.average / 100).toString()
+          : data.average.toString()
+      );
     }
   });
 
