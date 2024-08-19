@@ -159,3 +159,54 @@ export type SpotifyRecommendationFeatureAveragesType = {
 export type SpotifyTrackWithFeaturesType = SpotifyTrackType & {
   features: SpotifyTrackFeaturesType;
 };
+
+export type SpotifyCreatePlaylistResponse = {
+  collaborative: false;
+  description: string;
+  external_urls: SpotifyExternalUrlType;
+  followers: {
+    href: string;
+    total: number;
+  };
+  href: string;
+  id: string;
+  images: SpotifyImageType[];
+  name: string;
+  owner: {
+    external_urls: SpotifyExternalUrlType;
+    followers: {
+      href: string;
+      total: number;
+    };
+    href: string;
+    id: string;
+    type: string;
+    uri: string;
+    display_name: string;
+  };
+  public: boolean;
+  snapshot_id: string;
+  tracks: {
+    href: string;
+    limit: number;
+    next: string;
+    offset: number;
+    previous: string;
+    total: number;
+    items: {
+      added_at: string;
+      added_by: {
+        external_urls: SpotifyExternalUrlType;
+        followers: SpotifyFollowerType;
+        href: string;
+        id: string;
+        type: string;
+        uri: string;
+      };
+      is_local: boolean;
+      track: SpotifyTrackType;
+    }[];
+  };
+  type: string;
+  uri: string;
+};

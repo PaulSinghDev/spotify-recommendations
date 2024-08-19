@@ -1,5 +1,6 @@
 import { Authenticator } from "remix-auth";
 import { SpotifyStrategy } from "remix-auth-spotify";
+import { prisma } from "~/lib/prisma/client";
 
 import { sessionStorage } from "~/services/session.server";
 
@@ -34,18 +35,28 @@ export const spotifyStrategy = new SpotifyStrategy(
     sessionStorage,
     scope: scopes,
   },
-  async ({ accessToken, refreshToken, extraParams, profile }) => ({
-    accessToken,
-    refreshToken,
-    expiresAt: Date.now() + extraParams.expiresIn * 1000,
-    tokenType: extraParams.tokenType,
-    user: {
-      id: profile.id,
-      email: profile.emails[0].value,
-      name: profile.displayName,
-      image: profile.__json.images?.[0]?.url,
-    },
-  })
+  async ({ accessToken, refreshToken, extraParams, profile }) => {
+    // Do we have a user in the DB?
+    const dbUser = await prisma?.user.findFirst({ where: { id: profile.id } });
+
+    if (!dbUser) {
+      // nope
+      await prisma?.user.create({ data: { id: profile.id } });
+    }
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt: Date.now() + extraParams.expiresIn * 1000,
+      tokenType: extraParams.tokenType,
+      user: {
+        id: profile.id,
+        email: profile.emails[0].value,
+        name: profile.displayName,
+        image: profile.__json.images?.[0]?.url,
+      },
+    };
+  }
 );
 
 export const authenticator = new Authenticator(sessionStorage, {

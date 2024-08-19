@@ -10,7 +10,7 @@ const linkVariants = cva(
         default: "",
         secondary:
           "text-secondary-foreground text-decoration-color-secondary-foreground",
-        button: "bg-foreground text-background py-2 px-4",
+        button: "bg-foreground text-background py-2 px-4 rounded-full",
       },
       size: {
         default: "text-md",
