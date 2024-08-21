@@ -32,7 +32,7 @@ export default function Index() {
       <div className="max-w-[1200px] mx-auto">
         <header className="px-8 pt-32 flex flex-col items-center mb-24">
           <div className="max-w-[600px] w-full mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold text-pretty mb-4 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-pretty mb-4 text-center text-shadow-md shadow-black">
               Spotify Playlist Creator
             </h1>
             <p className="font-thin text-center text-xl">
