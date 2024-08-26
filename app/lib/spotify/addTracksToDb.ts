@@ -11,24 +11,12 @@ export const addTracksToDb = async (
   if (!prisma) throw new Error("Prisma is not defined");
 
   // tracks to update
-  const tracksToUpdate: string[] = [];
+  const tracksToUpdate: ReturnType<typeof prisma.track.update>[] = [];
 
   // Tracks to create
   const tracksToCreate: ReturnType<typeof prisma.track.create>[] = [];
 
   for (const track of tracks) {
-    // Does the track exist?
-    const existingTrack = await prisma.track.findUnique({
-      where: {
-        id: track.id,
-      },
-    });
-
-    // it does, continue
-    if (existingTrack) {
-      continue;
-    }
-
     // tracks that need to just have the user connected
     const existsInDb =
       (await prisma?.track.count({
@@ -39,14 +27,27 @@ export const addTracksToDb = async (
 
     // it exists in the db we will need to connect the user
     if (existsInDb) {
-      tracksToUpdate.push(track.id);
+      tracksToUpdate.push(
+        prisma.track.update({
+          where: {
+            id: track.id,
+          },
+          data: {
+            users: {
+              connect: {
+                id: userId,
+              },
+            },
+          },
+        })
+      );
       continue;
     }
 
     // get the audio features for the track
     const audioFeatures = await getTrackFeatures(accessToken, [track.id]);
 
-    // it doesn't, add a promise to the array
+    // it doesn't exist in the db, add a promise to the array
     const promise = prisma?.track.create({
       data: {
         id: track.id,
@@ -85,6 +86,7 @@ export const addTracksToDb = async (
     tracksToCreate.push(promise);
   }
 
+  // Let the promises finish
   await Promise.all(tracksToCreate);
   await Promise.all(tracksToUpdate);
 };

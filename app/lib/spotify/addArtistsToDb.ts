@@ -6,6 +6,10 @@ export const addArtistsToDb = async (
   userId: string,
   artistIds: string[]
 ) => {
+  if (!prisma) throw new Error("Couldn't start prisma");
+
+  const promises: ReturnType<typeof prisma.artist.create>[] = [];
+
   // Iterate artist IDs and create an artist in our DB if they are not there
   for (const artistId of artistIds) {
     // Get the artist from the DB
@@ -25,21 +29,25 @@ export const addArtistsToDb = async (
 
       // Create the artist in the DB if we have one
       if (artist) {
-        await prisma?.artist.create({
-          data: {
-            id: artist.id,
-            name: artist.name,
-            genres: artist.genres,
-            created: new Date(),
-            image: artist.images[0]?.url,
-            users: {
-              connect: {
-                id: userId,
+        promises.push(
+          prisma?.artist.create({
+            data: {
+              id: artist.id,
+              name: artist.name,
+              genres: artist.genres,
+              created: new Date(),
+              image: artist.images[0]?.url,
+              users: {
+                connect: {
+                  id: userId,
+                },
               },
             },
-          },
-        });
+          })
+        );
       }
     }
   }
+
+  await Promise.all(promises);
 };
