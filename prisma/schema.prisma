@@ -6,14 +6,17 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id        String     @id @default(uuid())
   created   DateTime   @default(now())
   playlists Playlist[]
+  tracks    Track[]
+  artists   Artist[]
 }
 
 model Playlist {
@@ -23,6 +26,48 @@ model Playlist {
   cover     String
   url       String?
   isPrivate Boolean
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  creatorId String
+  creator   User     @relation(fields: [creatorId], references: [id])
+  tracks    Track[]
+}
+
+model Track {
+  id         String         @id @default(uuid())
+  created    DateTime       @default(now())
+  title      String
+  album      String
+  cover      String
+  url        String
+  spotifyUri String         @unique
+  duration   Int
+  playlists  Playlist[]
+  artists    Artist[]
+  users      User[]
+  features   TrackFeatures?
+}
+
+model TrackFeatures {
+  id               String   @id @default(uuid())
+  created          DateTime @default(now())
+  trackId          String   @unique
+  track            Track    @relation(fields: [trackId], references: [id])
+  acousticness     Float
+  danceability     Float
+  energy           Float
+  instrumentalness Float
+  liveness         Float
+  loudness         Float
+  speechiness      Float
+  tempo            Float
+  valence          Float
+}
+
+model Artist {
+  id      String   @id @default(uuid())
+  created DateTime @default(now())
+  name    String
+  image   String?
+  genres  String[]
+  tracks  Track[]
+  users   User[]
 }

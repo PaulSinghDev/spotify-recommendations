@@ -3,6 +3,8 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "@remix-run/node";
+import { addArtistsToDb } from "~/lib/spotify/addArtistsToDb";
+import { addTracksToDb } from "~/lib/spotify/addTracksToDb";
 import { getRecommendations } from "~/lib/spotify/getRecommendations";
 import { spotifyStrategy } from "~/services/auth.server";
 
@@ -23,6 +25,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const params = new URL(request.url).searchParams;
 
   const data = await getRecommendations(params, session.accessToken);
+
+  // Get the artist IDs from the new tracks
+  const artistIds = data
+    .map((track) => track.artists.map((artist) => artist.id))
+    .flat();
+
+  // Add the new artists to the DB
+  await addArtistsToDb(session.accessToken, session.user.id, artistIds);
+
+  // add the recommendations to the db
+  await addTracksToDb(data, session.user.id, session.accessToken);
 
   return json({ success: true, data }, 200);
 };

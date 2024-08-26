@@ -90,7 +90,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       url: createPlaylistResponse.href,
       cover: coverRes[0]?.url || "",
       isPrivate: isPrivatePlaylist,
-      userId: session.user.id,
+      creator: {
+        connect: {
+          id: session.user.id,
+        },
+      },
+      tracks: {
+        connect: trackUris.split(",").map((spotifyUri) => ({ spotifyUri })),
+      },
     },
   });
 

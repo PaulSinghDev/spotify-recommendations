@@ -36,7 +36,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // iterate artists
   for (const batch of batches) {
-    // Authenticated, try get tracks
+    // Authenticated, try get artists
     const artists = await getArtistsFromIds(session.accessToken, batch);
 
     // Push it
