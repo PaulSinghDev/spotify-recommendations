@@ -10,12 +10,6 @@ export const addTracksToDb = async (
   // Ensure prisma is defined
   if (!prisma) throw new Error("Prisma is not defined");
 
-  // tracks to update
-  const tracksToUpdate: ReturnType<typeof prisma.track.update>[] = [];
-
-  // Tracks to create
-  const tracksToCreate: ReturnType<typeof prisma.track.create>[] = [];
-
   const withoutDuplicates = tracks.reduce(
     (output: SpotifyTrackType[], current) =>
       output.find((track) => track.id === current.id)
@@ -35,20 +29,19 @@ export const addTracksToDb = async (
 
     // it exists in the db we will need to connect the user
     if (existsInDb) {
-      tracksToUpdate.push(
-        prisma.track.update({
-          where: {
-            id: track.id,
-          },
-          data: {
-            users: {
-              connect: {
-                id: userId,
-              },
+      await prisma.track.update({
+        where: {
+          id: track.id,
+        },
+        data: {
+          users: {
+            connect: {
+              id: userId,
             },
           },
-        })
-      );
+        },
+      });
+
       continue;
     }
 
@@ -56,10 +49,10 @@ export const addTracksToDb = async (
     const audioFeatures = await getTrackFeatures(accessToken, [track.id]);
 
     // it doesn't exist in the db, add a promise to the array
-    const promise = prisma?.track.create({
+    await prisma?.track.create({
       data: {
         id: track.id,
-        title: track.name,
+        name: track.name,
         album: track.album.name,
         cover: track.album.images[0].url,
         url: track.href,
@@ -90,11 +83,5 @@ export const addTracksToDb = async (
         },
       },
     });
-
-    tracksToCreate.push(promise);
   }
-
-  // Let the promises finish
-  await Promise.all(tracksToCreate);
-  await Promise.all(tracksToUpdate);
 };

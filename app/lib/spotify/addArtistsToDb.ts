@@ -8,8 +8,6 @@ export const addArtistsToDb = async (
 ) => {
   if (!prisma) throw new Error("Couldn't start prisma");
 
-  const promises: ReturnType<typeof prisma.artist.create>[] = [];
-
   // Stop us trying to add the same artist multiple times
   const withoutDuplicates = artistIds.reduce(
     (output: string[], current) =>
@@ -36,25 +34,35 @@ export const addArtistsToDb = async (
 
       // Create the artist in the DB if we have one
       if (artist) {
-        promises.push(
-          prisma?.artist.create({
-            data: {
-              id: artist.id,
-              name: artist.name,
-              genres: artist.genres,
-              created: new Date(),
-              image: artist.images[0]?.url,
-              users: {
-                connect: {
-                  id: userId,
-                },
+        await prisma?.artist.create({
+          data: {
+            id: artist.id,
+            name: artist.name,
+            genres: artist.genres,
+            created: new Date(),
+            image: artist.images[0]?.url,
+            users: {
+              connect: {
+                id: userId,
               },
             },
-          })
-        );
+          },
+        });
       }
+    } else {
+      // Just connect the artist to the user
+      await prisma?.artist.update({
+        where: {
+          id: artistId,
+        },
+        data: {
+          users: {
+            connect: {
+              id: userId,
+            },
+          },
+        },
+      });
     }
   }
-
-  await Promise.all(promises);
 };

@@ -1,7 +1,7 @@
 // app/routes/_index.tsx
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactConfetti from "react-confetti";
 import { AddPlaylistForm } from "~/components/add-playlist-form";
 import { InfoCard } from "~/components/info-card";
@@ -34,6 +34,7 @@ import {
   SpotifyFullArtistType,
   SpotifyRecommendationFeatureAveragesType,
   SpotifyTrackType,
+  SpotifyTrackWithFeaturesType,
 } from "~/types/spotify";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -53,8 +54,9 @@ export default function Index() {
     useState(false);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [topTracks, setTopTracks] = useState<SpotifyTrackType[]>([]);
-  const [topArtists, setTopArtists] = useState<SpotifyFullArtistType[]>([]);
+  const [tracks, setTracks] = useState<SpotifyTrackType[]>([]);
+  const [artists, setArtists] = useState<SpotifyFullArtistType[]>([]);
+  const [genres, setGenres] = useState<[string, number][]>([]);
   const [tracksForFeatures, setTracksForFeatures] = useState<
     [string, number][]
   >([]);
@@ -64,9 +66,9 @@ export default function Index() {
   const [genresForFeatures, setGenresForFeatures] = useState<
     [string, number][]
   >([]);
-  const [genres, setGenres] = useState<[string, number][]>([]);
   const [audioFeatures, setAudioFeatures] =
     useState<SpotifyRecommendationFeatureAveragesType>();
+
   const [recommendedPlaylist, setRecommendedPlaylist] = useState<
     SpotifyTrackType[]
   >([]);
@@ -80,6 +82,77 @@ export default function Index() {
 
   const data = useLoaderData<typeof loader>();
   const user = data?.session?.user;
+
+  // Get the user's current tracks etc from the DB
+  useEffect(() => {
+    (async () => {
+      // Get tracks
+      if (!tracks.length) {
+        const request = await fetch("/api/v1/get-data", {
+          method: "POST",
+          body: JSON.stringify({ type: "tracks" }),
+        });
+
+        const response: {
+          data: SpotifyTrackWithFeaturesType[];
+        } = await request.json();
+
+        if (response?.data?.length) {
+          const featureAverages = getRecommendationFeatureAveragesFromTracks(
+            response.data
+          );
+          setAudioFeatures(featureAverages);
+          setTracks(response.data as unknown as SpotifyTrackType[]);
+          setTracksForFeatures(
+            response.data.slice(0, 2).map((track) => [track.id, 0])
+          );
+        }
+      }
+
+      // Get artists
+      if (!artists.length) {
+        const request = await fetch("/api/v1/get-data", {
+          method: "POST",
+          body: JSON.stringify({ type: "artists" }),
+        });
+
+        const response: { data: SpotifyFullArtistType[] } =
+          await request.json();
+
+        if (response?.data?.length) {
+          setArtists(response.data);
+          setArtistsForFeatures(
+            response.data.slice(0, 2).map((artist) => [artist.id, 0])
+          );
+        }
+      }
+
+      // Get genres
+      if (artists.length && !genres.length) {
+        const orderedGenres = artists
+          .reduce((output: [string, number][], current) => {
+            current.genres.forEach((genre) => {
+              let tuple = output.find((tuple) => tuple[0] === genre);
+
+              if (!output.find((tuple) => tuple[0] === genre)) {
+                tuple = [genre, 0];
+                output.push(tuple);
+              }
+
+              if (tuple) {
+                tuple[1] += 1;
+              }
+            });
+
+            return output;
+          }, [])
+          .sort((a, b) => b[1] - a[1]);
+
+        setGenres(orderedGenres);
+        setGenresForFeatures(orderedGenres.slice(0, 1));
+      }
+    })();
+  }, [tracks.length, artists.length, genres.length, artists]);
 
   if (!user) {
     return (
@@ -135,23 +208,21 @@ export default function Index() {
                   onClick={async () => {
                     setIsLoading(true);
                     // Top tracks
-                    const topTracksRequest = await fetch("/api/v1/top-tracks");
-                    const topTracksResponse = await topTracksRequest.json();
+                    const tracksRequest = await fetch("/api/v1/top-tracks");
+                    const tracksResponse = await tracksRequest.json();
                     const tracks: SpotifyTrackType[] = [];
 
-                    if (topTracksResponse.data.length) {
-                      tracks.push(...topTracksResponse.data);
+                    if (tracksResponse.data.length) {
+                      tracks.push(...tracksResponse.data);
                     }
 
                     // Top artists
-                    const topArtistsRequest = await fetch(
-                      "/api/v1/top-artists"
-                    );
-                    const topArtistsResponse = await topArtistsRequest.json();
+                    const artistsRequest = await fetch("/api/v1/top-artists");
+                    const artistsResponse = await artistsRequest.json();
                     const artists: SpotifyFullArtistType[] = [];
 
-                    if (topArtistsResponse.data.length) {
-                      artists.push(...topArtistsResponse.data);
+                    if (artistsResponse.data.length) {
+                      artists.push(...artistsResponse.data);
                     }
 
                     // Recently played tracks
@@ -170,7 +241,7 @@ export default function Index() {
 
                       tracks.push(...tracksNotInState);
 
-                      setTopTracks(tracks);
+                      setTracks(tracks);
                     }
 
                     // recently played artists
@@ -197,7 +268,7 @@ export default function Index() {
                         []
                       );
 
-                      setTopArtists(withoutDupes);
+                      setArtists(withoutDupes);
                     }
 
                     // Top 5 tracks
@@ -221,7 +292,7 @@ export default function Index() {
 
                     // Top 5 genres
                     const genresWithCount = [
-                      ...topArtistsResponse.data.map(
+                      ...artistsResponse.data.map(
                         (artist: SpotifyFullArtistType) => artist.genres
                       ),
                       ...recentlyPlayedArtistsResponse.data.map(
@@ -270,10 +341,10 @@ export default function Index() {
                     // Audio features
                     const audioFeaturesRequest = await fetch(
                       `/api/v1/track-features?ids=${[
-                        ...topTracksResponse.data,
+                        ...tracksResponse.data,
                         ...recentlyPlayedTracksResponse.data,
                       ]
-                        .map((track) => track.id)
+                        ?.map((track) => track.id)
                         .join(",")}`
                     );
                     const audioFeaturesResponse =
@@ -284,7 +355,7 @@ export default function Index() {
                       // Yup, merge with tracks so we can tally popularity
                       const mergedWithTracks = mergeTrackFeaturesAndDetails(
                         [
-                          ...topTracksResponse.data,
+                          ...tracksResponse.data,
                           ...recentlyPlayedTracksResponse.data,
                         ],
                         audioFeaturesResponse.data
@@ -320,7 +391,7 @@ export default function Index() {
         ) : null}
 
         <div className="flex flex-col gap-4">
-          {topTracks.length && topArtists.length && genres.length ? (
+          {tracks.length && artists.length && genres.length ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-8 max-w-[600px] font-thin text-xl mr-auto mt-12 col-span-full">
                 <h2 className="font-bold text-4xl mb-4">Select Seed Items</h2>
@@ -406,7 +477,7 @@ export default function Index() {
                 ) : null}
 
                 {/* Tracks */}
-                {topTracks.length ? (
+                {tracks.length ? (
                   <div>
                     <Button
                       onClick={() => setTracksDialogOpen(true)}
@@ -421,58 +492,60 @@ export default function Index() {
                       <CommandInput placeholder="Search tracks" />
                       <CommandList>
                         <CommandGroup>
-                          {topTracks.map((track) => (
-                            <CommandItem
-                              key={`top-track-${track.id}`}
-                              className="flex gap-4 items-center"
-                            >
-                              {tracksForFeatures.find(
-                                (feature) => feature[0] === track.id
-                              ) ? (
-                                <Button
-                                  size={"xs"}
-                                  onClick={() => {
-                                    setTracksForFeatures(
-                                      tracksForFeatures.filter(
-                                        (feature) => feature[0] !== track.id
-                                      )
-                                    );
-                                  }}
-                                >
-                                  <Icons.trash size={15} />
-                                </Button>
-                              ) : tracksForFeatures.length +
-                                  artistsForFeatures.length +
-                                  genresForFeatures.length <
-                                5 ? (
-                                <Button
-                                  size={"xs"}
-                                  onClick={() => {
-                                    setTracksForFeatures([
-                                      ...tracksForFeatures,
-                                      [track.id, 0],
-                                    ]);
-                                  }}
-                                >
-                                  <Icons.add size={15} />
-                                </Button>
-                              ) : (
-                                <Button size={"xs"} disabled>
-                                  <Icons.frown size={15} />
-                                </Button>
-                              )}
-                              <div className="flex flex-col">
-                                <span className="text-lg font-bold">
-                                  {track.name}
-                                </span>
-                                <span className="text-sm text-grey">
-                                  {track.artists
-                                    .map((artist) => artist.name)
-                                    .join(", ")}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
+                          {tracks?.map((track) => {
+                            return (
+                              <CommandItem
+                                key={`top-track-${track.id}`}
+                                className="flex gap-4 items-center"
+                              >
+                                {tracksForFeatures.find(
+                                  (feature) => feature[0] === track.id
+                                ) ? (
+                                  <Button
+                                    size={"xs"}
+                                    onClick={() => {
+                                      setTracksForFeatures(
+                                        tracksForFeatures.filter(
+                                          (feature) => feature[0] !== track.id
+                                        )
+                                      );
+                                    }}
+                                  >
+                                    <Icons.trash size={15} />
+                                  </Button>
+                                ) : tracksForFeatures.length +
+                                    artistsForFeatures.length +
+                                    genresForFeatures.length <
+                                  5 ? (
+                                  <Button
+                                    size={"xs"}
+                                    onClick={() => {
+                                      setTracksForFeatures([
+                                        ...tracksForFeatures,
+                                        [track.id, 0],
+                                      ]);
+                                    }}
+                                  >
+                                    <Icons.add size={15} />
+                                  </Button>
+                                ) : (
+                                  <Button size={"xs"} disabled>
+                                    <Icons.frown size={15} />
+                                  </Button>
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="text-lg font-bold">
+                                    {track.name}
+                                  </span>
+                                  <span className="text-sm text-grey">
+                                    {track.artists
+                                      ?.map((artist) => artist.name)
+                                      .join(", ")}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </CommandDialog>
@@ -480,7 +553,7 @@ export default function Index() {
                 ) : null}
 
                 {/* Artists */}
-                {topArtists.length ? (
+                {artists.length ? (
                   <div>
                     <Button
                       onClick={() => setArtistsDialogOpen(true)}
@@ -495,7 +568,7 @@ export default function Index() {
                       <CommandInput placeholder="Search artists" />
                       <CommandList>
                         <CommandGroup>
-                          {topArtists.map((artist) => (
+                          {artists?.map((artist) => (
                             <li
                               key={`top-artist-${artist.id}`}
                               className="flex gap-4 items-center"
@@ -574,38 +647,40 @@ export default function Index() {
                         <div className="flex flex-col">
                           <ul className="grid grid-cols-2 gap-4 bg-slate-300 p-6 rounded-md">
                             {audioFeatures
-                              ? Object.keys(audioFeatures).map((featureKey) => {
-                                  const average =
-                                    audioFeatures[
-                                      featureKey as keyof typeof audioFeatures
-                                    ]?.average;
+                              ? Object.keys(audioFeatures)?.map(
+                                  (featureKey) => {
+                                    const average =
+                                      audioFeatures[
+                                        featureKey as keyof typeof audioFeatures
+                                      ]?.average;
 
-                                  return typeof average !== "undefined" ? (
-                                    <li
-                                      key={`audio-feature-${featureKey}`}
-                                      className="inline-flex flex-col gap-2"
-                                    >
-                                      <span className="capitalize">
-                                        {featureKey}:
-                                      </span>
-                                      <Input
-                                        min={0}
-                                        max={100}
-                                        className="text-slate-700"
-                                        value={average}
-                                        type="number"
-                                        onChange={(e) => {
-                                          setAudioFeatures({
-                                            ...audioFeatures,
-                                            [featureKey]: {
-                                              average: e.currentTarget.value,
-                                            },
-                                          });
-                                        }}
-                                      />
-                                    </li>
-                                  ) : null;
-                                })
+                                    return typeof average !== "undefined" ? (
+                                      <li
+                                        key={`audio-feature-${featureKey}`}
+                                        className="inline-flex flex-col gap-2"
+                                      >
+                                        <span className="capitalize">
+                                          {featureKey}:
+                                        </span>
+                                        <Input
+                                          min={0}
+                                          max={100}
+                                          className="text-slate-700"
+                                          value={average}
+                                          type="number"
+                                          onChange={(e) => {
+                                            setAudioFeatures({
+                                              ...audioFeatures,
+                                              [featureKey]: {
+                                                average: e.currentTarget.value,
+                                              },
+                                            });
+                                          }}
+                                        />
+                                      </li>
+                                    ) : null;
+                                  }
+                                )
                               : null}
                           </ul>
                         </div>
@@ -705,7 +780,7 @@ export default function Index() {
                       const [id] = tuple;
 
                       // Get a track object
-                      const track = topTracks.find(
+                      const track = tracks.find(
                         (trackObject) => trackObject.id === id
                       );
 
@@ -736,7 +811,7 @@ export default function Index() {
                             </span>
                             <span className="text-sm text-grey">
                               {track.artists
-                                .map((artist) => artist.name)
+                                ?.map((artist) => artist.name)
                                 .join(", ")}
                             </span>
                           </div>
@@ -758,7 +833,7 @@ export default function Index() {
                 </div>
                 {genresForFeatures.length ? (
                   <ul className="flex flex-col gap-4">
-                    {genresForFeatures.map((tuple) => {
+                    {genresForFeatures?.map((tuple) => {
                       // Get details
                       const [id] = tuple;
 
@@ -804,10 +879,10 @@ export default function Index() {
                 </div>
                 {artistsForFeatures.length ? (
                   <ul className="flex flex-col gap-4">
-                    {artistsForFeatures.map((tuple) => {
+                    {artistsForFeatures?.map((tuple) => {
                       const [id] = tuple;
                       // Get a track object
-                      const artist = topArtists.find(
+                      const artist = artists.find(
                         (trackObject) => trackObject.id === id
                       );
 
@@ -955,6 +1030,7 @@ export default function Index() {
                           src: track.album.images[0]?.url,
                           alt: `Image for ${track.album.name}`,
                         }}
+                        url={track.uri}
                         description={track.artists
                           .map((artist) => artist.name)
                           .join(", ")}

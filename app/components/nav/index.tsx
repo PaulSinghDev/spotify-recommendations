@@ -48,9 +48,11 @@ function MobileNavDrawer() {
         <Icons.menu />
       </SheetTrigger>
       <SheetContent>
-        <SheetHeader>
+        <SheetHeader className="mb-4">
           <SheetTitle>Menu</SheetTitle>
-          <SheetDescription>Some words</SheetDescription>
+          <SheetDescription>
+            Explore your playlists, Fuck Yeah!
+          </SheetDescription>
         </SheetHeader>
         <NavLinks />
       </SheetContent>

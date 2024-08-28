@@ -34,7 +34,7 @@ model Playlist {
 model Track {
   id         String         @id @default(uuid())
   created    DateTime       @default(now())
-  title      String
+  name       String
   album      String
   cover      String
   url        String
