@@ -16,7 +16,15 @@ export const addTracksToDb = async (
   // Tracks to create
   const tracksToCreate: ReturnType<typeof prisma.track.create>[] = [];
 
-  for (const track of tracks) {
+  const withoutDuplicates = tracks.reduce(
+    (output: SpotifyTrackType[], current) =>
+      output.find((track) => track.id === current.id)
+        ? output
+        : [...output, current],
+    []
+  );
+
+  for (const track of withoutDuplicates) {
     // tracks that need to just have the user connected
     const existsInDb =
       (await prisma?.track.count({
@@ -54,7 +62,7 @@ export const addTracksToDb = async (
         title: track.name,
         album: track.album.name,
         cover: track.album.images[0].url,
-        url: track.preview_url,
+        url: track.href,
         spotifyUri: track.uri,
         duration: track.duration_ms,
         features: {

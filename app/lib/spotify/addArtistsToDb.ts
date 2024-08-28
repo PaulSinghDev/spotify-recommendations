@@ -10,8 +10,15 @@ export const addArtistsToDb = async (
 
   const promises: ReturnType<typeof prisma.artist.create>[] = [];
 
+  // Stop us trying to add the same artist multiple times
+  const withoutDuplicates = artistIds.reduce(
+    (output: string[], current) =>
+      output.find((id) => id === current) ? output : [...output, current],
+    []
+  );
+
   // Iterate artist IDs and create an artist in our DB if they are not there
-  for (const artistId of artistIds) {
+  for (const artistId of withoutDuplicates) {
     // Get the artist from the DB
     const artist = await prisma?.artist.findUnique({
       where: {
