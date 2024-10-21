@@ -1,4 +1,5 @@
 // app/routes/_index.tsx
+import { Job, Track } from "@prisma/client";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
@@ -27,9 +28,8 @@ import { Icons } from "~/components/ui/icons";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { getRecommendationFeatureAveragesFromTracks } from "~/lib/spotify/getRecommendationFeatureAveragesFromTracks";
-import { getRecommendationFeaturesString } from "~/lib/spotify/getRecommendationFeatureString";
-import { mergeTrackFeaturesAndDetails } from "~/lib/spotify/mergeTrackFeaturesAndDetails";
 import { spotifyStrategy } from "~/services/auth.server";
+import { GenericAPIResponse } from "~/types/data";
 import {
   SpotifyFullArtistType,
   SpotifyRecommendationFeatureAveragesType,
@@ -53,7 +53,7 @@ export default function Index() {
   const [recommendationDialogOpen, setRecommendationDialogOpen] =
     useState(false);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  //const [isLoading, setIsLoading] = useState(false);
   const [tracks, setTracks] = useState<SpotifyTrackType[]>([]);
   const [artists, setArtists] = useState<SpotifyFullArtistType[]>([]);
   const [genres, setGenres] = useState<[string, number][]>([]);
@@ -69,9 +69,7 @@ export default function Index() {
   const [audioFeatures, setAudioFeatures] =
     useState<SpotifyRecommendationFeatureAveragesType>();
 
-  const [recommendedPlaylist, setRecommendedPlaylist] = useState<
-    SpotifyTrackType[]
-  >([]);
+  const [recommendedPlaylist, setRecommendedPlaylist] = useState<Track[]>([]);
   const [recommendationTrackCount, setRecommendationTrackCount] = useState(20);
   const [playlistCreated, setPlaylistCreated] = useState(false);
   const [playlistError, setPlaylistError] = useState(false);
@@ -79,9 +77,83 @@ export default function Index() {
   const [genreDialogOpen, setGenreDialogOpen] = useState(false);
   const [tracksDialogOpen, setTracksDialogOpen] = useState(false);
   const [artistsDialogOpen, setArtistsDialogOpen] = useState(false);
+  const [fetchDataJob, setFetchDataJob] = useState<Job | null>(null);
+  const [fetchCreatePlaylistJob, setFetchCreatePlaylistJob] =
+    useState<Job | null>(null);
+  const [fetchRecommendationsJob, setFetchRecommendationsJob] =
+    useState<Job | null>(null);
 
   const data = useLoaderData<typeof loader>();
   const user = data?.session?.user;
+
+  // Run on the first run only
+  useEffect(() => {
+    if (user?.id) {
+      (async () => {
+        // Fetch current jobs
+        const request = await fetch(
+          `/api/v1/jobs?status=RUNNING,PENDING&user=${user?.id}`
+        );
+
+        // Get our response
+        const response: GenericAPIResponse<Job[]> = await request.json();
+
+        console.log(response.data);
+
+        // Iterate over the jobs
+        for (const job of response.data) {
+          if (!fetchDataJob && job?.type === "GET_DATA") {
+            // Set the fetch data job
+            console.log("Setting fetch data job");
+            setFetchDataJob(job);
+          } else if (
+            !fetchRecommendationsJob &&
+            job?.type === "GET_RECOMMENDATIONS"
+          ) {
+            // Set the fetch recommendations job
+            console.log("Setting fetch recommendations job");
+            setFetchRecommendationsJob(job);
+          } else if (
+            !fetchCreatePlaylistJob &&
+            job?.type === "CREATE_PLAYLIST"
+          ) {
+            // Set the fetch create playlist job
+            console.log("Setting fetch create playlist job");
+            setFetchCreatePlaylistJob(job);
+          } else {
+            // Reset the jobs
+            //setFetchDataJob(null);
+            //setFetchRecommendationsJob(null);
+            //setFetchCreatePlaylistJob(null);
+          }
+
+          if (
+            job.type === "GET_RECOMMENDATIONS" &&
+            !recommendedPlaylist.length &&
+            job.data instanceof Object &&
+            "trackIds" in job.data &&
+            Array.isArray(job.data.trackIds)
+          ) {
+            // Set the recommended playlist
+            console.log("Setting recommended playlist");
+            const request = await fetch(
+              `/api/v1/get-tracks?ids=${job?.data?.trackIds?.join(",")}`
+            );
+
+            const response: GenericAPIResponse<Track[]> = await request.json();
+
+            setRecommendedPlaylist(response.data);
+          }
+        }
+      })();
+    }
+  }, [
+    user?.id,
+    fetchDataJob,
+    fetchRecommendationsJob,
+    recommendedPlaylist,
+    fetchCreatePlaylistJob,
+  ]);
 
   // Get the user's current tracks etc from the DB
   useEffect(() => {
@@ -205,190 +277,72 @@ export default function Index() {
               {data?.session.accessToken ? (
                 <Button
                   className="grow"
+                  disabled={fetchDataJob ? true : false}
                   onClick={async () => {
-                    setIsLoading(true);
-                    // Top tracks
-                    const tracksRequest = await fetch("/api/v1/top-tracks");
-                    const tracksResponse = await tracksRequest.json();
-                    const tracks: SpotifyTrackType[] = [];
+                    const request = await fetch("/api/v1/jobs", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        type: "GET_DATA",
+                      }),
+                    });
 
-                    if (tracksResponse.data.length) {
-                      tracks.push(...tracksResponse.data);
-                    }
+                    const response: GenericAPIResponse<Job> =
+                      await request.json();
 
-                    // Top artists
-                    const artistsRequest = await fetch("/api/v1/top-artists");
-                    const artistsResponse = await artistsRequest.json();
-                    const artists: SpotifyFullArtistType[] = [];
+                    const jobId = response.data.id;
 
-                    if (artistsResponse.data.length) {
-                      artists.push(...artistsResponse.data);
-                    }
+                    if (!jobId) {
+                      throw new Error("No job id returned");
+                    } else {
+                      // Store the job in state
+                      setFetchDataJob(response.data);
 
-                    // Recently played tracks
-                    const recentlyPlayedTracksRequest = await fetch(
-                      "/api/v1/recently-played-tracks"
-                    );
-                    const recentlyPlayedTracksResponse =
-                      await recentlyPlayedTracksRequest.json();
+                      // Check the job status
+                      const timer = setInterval(async () => {
+                        const request = await fetch(`/api/v1/jobs?id=${jobId}`);
 
-                    if (recentlyPlayedTracksResponse.data.length) {
-                      const tracksNotInState =
-                        recentlyPlayedTracksResponse.data.filter(
-                          (toCheck: SpotifyTrackType) =>
-                            !tracks.find((track) => track.id === toCheck.id)
+                        const response: GenericAPIResponse<Job[]> =
+                          await request.json();
+
+                        const updatedJob = response?.data?.find(
+                          (j: Job) => j.id === jobId
                         );
 
-                      tracks.push(...tracksNotInState);
-
-                      setTracks(tracks);
-                    }
-
-                    // recently played artists
-                    const recentlyPlayedArtistsRequest = await fetch(
-                      `/api/v1/artists?ids=${recentlyPlayedTracksResponse.data
-                        .map((track: SpotifyTrackType) =>
-                          track.artists.map((artist) => artist.id)
-                        )
-                        .flat()
-                        .join(",")}`
-                    );
-                    const recentlyPlayedArtistsResponse =
-                      await recentlyPlayedArtistsRequest.json();
-
-                    if (recentlyPlayedArtistsResponse.data.length) {
-                      const withoutDupes = [
-                        ...artists,
-                        ...recentlyPlayedArtistsResponse.data,
-                      ].reduce(
-                        (output: SpotifyFullArtistType[], current) =>
-                          !output.find((a) => a.id === current.id)
-                            ? [...output, current]
-                            : output,
-                        []
-                      );
-
-                      setArtists(withoutDupes);
-                    }
-
-                    // Top 5 tracks
-                    const tracksWithCount = tracks
-                      .reduce((output: [string, number][], current) => {
-                        let currentTuple = output.find(
-                          (tuple) => tuple[0] === current.id
-                        );
-                        if (!currentTuple) {
-                          currentTuple = [current.id, 0];
-                          output.push(currentTuple);
+                        if (updatedJob && updatedJob.status !== "COMPLETED") {
+                          setFetchDataJob(updatedJob);
+                        } else {
+                          setFetchDataJob(null);
+                          clearInterval(timer);
                         }
-
-                        currentTuple[1] += 1;
-
-                        return output;
-                      }, [])
-                      .sort((a, b) => b[1] - a[1]);
-
-                    setTracksForFeatures(tracksWithCount.slice(0, 2));
-
-                    // Top 5 genres
-                    const genresWithCount = [
-                      ...artistsResponse.data.map(
-                        (artist: SpotifyFullArtistType) => artist.genres
-                      ),
-                      ...recentlyPlayedArtistsResponse.data.map(
-                        (artist: SpotifyFullArtistType) => artist.genres
-                      ),
-                    ]
-                      .flat()
-                      .reduce((output: [string, number][], current) => {
-                        let currentTuple = output.find(
-                          (tuple) => tuple[0] === current
-                        );
-                        if (!currentTuple) {
-                          currentTuple = [current, 0];
-                          output.push(currentTuple);
-                        }
-
-                        currentTuple[1] += 1;
-
-                        return output;
-                      }, [])
-                      .sort((a, b) => b[1] - a[1]);
-
-                    setGenres(genresWithCount);
-                    setGenresForFeatures(genresWithCount.slice(0, 1));
-
-                    // Top 5 artists
-                    const artistsWithCount = artists
-                      .reduce((output: [string, number][], current) => {
-                        let currentTuple = output.find(
-                          (tuple) => tuple[0] === current.id
-                        );
-
-                        if (!currentTuple) {
-                          currentTuple = [current.id, 0];
-                          output.push(currentTuple);
-                        }
-
-                        currentTuple[1] += 1;
-
-                        return output;
-                      }, [])
-                      .sort((a, b) => b[1] - a[1]);
-
-                    setArtistsForFeatures(artistsWithCount.slice(0, 2));
-
-                    // Audio features
-                    const audioFeaturesRequest = await fetch(
-                      `/api/v1/track-features?ids=${[
-                        ...tracksResponse.data,
-                        ...recentlyPlayedTracksResponse.data,
-                      ]
-                        ?.map((track) => track.id)
-                        .join(",")}`
-                    );
-                    const audioFeaturesResponse =
-                      await audioFeaturesRequest.json();
-
-                    // Do we have data?
-                    if (audioFeaturesResponse.data.length) {
-                      // Yup, merge with tracks so we can tally popularity
-                      const mergedWithTracks = mergeTrackFeaturesAndDetails(
-                        [
-                          ...tracksResponse.data,
-                          ...recentlyPlayedTracksResponse.data,
-                        ],
-                        audioFeaturesResponse.data
-                      );
-
-                      // Get the averages
-                      const averages =
-                        getRecommendationFeatureAveragesFromTracks(
-                          mergedWithTracks
-                        );
-
-                      // Set state
-                      setAudioFeatures(averages);
+                      }, 5000);
                     }
-
-                    setIsLoading(false);
                   }}
                 >
-                  Get Data
+                  {fetchDataJob ? (
+                    <span className="flex items-center gap-2">
+                      <span>{fetchDataJob.statusMsg || "Pending..."}</span>
+                      <Icons.spinner
+                        size={16}
+                        className="animate-spin rounded-full w-4 h-4"
+                      />
+                    </span>
+                  ) : (
+                    "Get Data"
+                  )}
                 </Button>
               ) : null}
             </div>
           </div>
         </header>
 
-        {isLoading ? (
+        {/*isLoading ? (
           <div className="fixed top-0 left-0 bg-slate-950 bg-opacity-90 w-full h-full flex flex-col justify-center items-center">
             <span className="animate-spin border-slate-200 border-b-transparent border-8 rounded-full w-20 h-20"></span>
             <div className="mt-6 text-2xl font-bold text-slate-200">
               Please wait...
             </div>
           </div>
-        ) : null}
+        ) : null*/}
 
         <div className="flex flex-col gap-4">
           {tracks.length && artists.length && genres.length ? (
@@ -645,7 +599,7 @@ export default function Index() {
                         </DialogHeader>
 
                         <div className="flex flex-col">
-                          <ul className="grid grid-cols-2 gap-4 bg-slate-300 p-6 rounded-md">
+                          <ul className="grid grid-cols-2 gap-4 p-6 rounded-md">
                             {audioFeatures
                               ? Object.keys(audioFeatures)?.map(
                                   (featureKey) => {
@@ -665,7 +619,6 @@ export default function Index() {
                                         <Input
                                           min={0}
                                           max={100}
-                                          className="text-slate-700"
                                           value={average}
                                           type="number"
                                           onChange={(e) => {
@@ -700,7 +653,22 @@ export default function Index() {
                     onOpenChange={setRecommendationDialogOpen}
                   >
                     <DialogTrigger asChild>
-                      <Button>Get Recommendations</Button>
+                      <Button disabled={fetchRecommendationsJob ? true : false}>
+                        {fetchRecommendationsJob ? (
+                          <span className="flex items-center gap-2">
+                            <span>
+                              {fetchRecommendationsJob?.statusMsg ||
+                                "Pending..."}
+                            </span>
+                            <Icons.spinner
+                              size={16}
+                              className="animate-spin rounded-full w-4 h-4"
+                            />
+                          </span>
+                        ) : (
+                          "Get Recommendations"
+                        )}
+                      </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -727,38 +695,87 @@ export default function Index() {
                       <DialogFooter>
                         <Button
                           onClick={async () => {
-                            setIsLoading(true);
                             setRecommendationDialogOpen(false);
-                            const recommendationFeatureString = audioFeatures
-                              ? getRecommendationFeaturesString(audioFeatures)
-                              : null;
 
-                            const recommendationGenresString = `seed_genres=${genresForFeatures
-                              .map((id) => id[0])
-                              .join(",")}`;
+                            const recommendationGenresString =
+                              genresForFeatures.map((id) => id[0]);
 
-                            const recommendationArtistsString = `seed_artists=${artistsForFeatures
-                              .map((id) => id[0])
-                              .join(",")}`;
+                            const recommendationArtistsString =
+                              artistsForFeatures.map((id) => id[0]);
 
-                            const recommendationTracksString = `seed_tracks=${tracksForFeatures
-                              .map((id) => id[0])
-                              .join(",")}`;
+                            const recommendationTracksString =
+                              tracksForFeatures.map((id) => id[0]);
 
-                            const queryString = new URLSearchParams(
-                              `${recommendationFeatureString}&${recommendationArtistsString}&${recommendationGenresString}&${recommendationTracksString}&limit=${recommendationTrackCount}`
-                            );
+                            const request = await fetch("/api/v1/jobs", {
+                              method: "POST",
+                              body: JSON.stringify({
+                                type: "GET_RECOMMENDATIONS",
+                                data: {
+                                  features: audioFeatures,
+                                  artistIds: recommendationArtistsString,
+                                  genreIds: recommendationGenresString,
+                                  trackIds: recommendationTracksString,
+                                  limit: recommendationTrackCount,
+                                },
+                              }),
+                            });
 
-                            const request = await fetch(
-                              `/api/v1/get-recommendations?${queryString}`
-                            );
+                            const response: GenericAPIResponse<Job> =
+                              await request.json();
 
-                            const response = await request.json();
+                            const jobId = response.data.id;
 
-                            if (response.data.length) {
-                              setRecommendedPlaylist(response.data);
+                            if (!jobId) {
+                              throw new Error("No job id returned");
+                            } else {
+                              // Store the job in state
+                              setFetchRecommendationsJob(response.data);
+
+                              // Check the job status
+                              const timer = setInterval(async () => {
+                                const request = await fetch(
+                                  `/api/v1/jobs?id=${jobId}`
+                                );
+
+                                const response: GenericAPIResponse<Job[]> =
+                                  await request.json();
+
+                                const updatedJob = response?.data?.find(
+                                  (j: Job) => j.id === jobId
+                                );
+
+                                if (
+                                  updatedJob &&
+                                  updatedJob.status !== "COMPLETED"
+                                ) {
+                                  setFetchRecommendationsJob(updatedJob);
+                                } else if (
+                                  updatedJob &&
+                                  updatedJob.data instanceof Object &&
+                                  "trackIds" in updatedJob.data &&
+                                  Array.isArray(updatedJob.data.trackIds)
+                                ) {
+                                  const request = await fetch(
+                                    `/api/v1/get-tracks?ids=${updatedJob?.data?.trackIds?.join(
+                                      ","
+                                    )}`
+                                  );
+
+                                  const response: GenericAPIResponse<Track[]> =
+                                    await request.json();
+
+                                  setRecommendedPlaylist(response.data);
+
+                                  setFetchRecommendationsJob(null);
+
+                                  clearInterval(timer);
+                                } else {
+                                  setFetchRecommendationsJob(null);
+
+                                  clearInterval(timer);
+                                }
+                              }, 5000);
                             }
-                            setIsLoading(false);
                           }}
                         >
                           Recommend Me, Biatch
@@ -945,7 +962,22 @@ export default function Index() {
                     }}
                   >
                     <DialogTrigger asChild className="my-8 max-w-[300px]">
-                      <Button>Create Playlist</Button>
+                      <Button>
+                        {fetchCreatePlaylistJob ? (
+                          <span className="flex items-center gap-2">
+                            <span>
+                              {fetchCreatePlaylistJob?.statusMsg ||
+                                "Pending..."}
+                            </span>
+                            <Icons.spinner
+                              size={16}
+                              className="animate-spin rounded-full w-4 h-4"
+                            />
+                          </span>
+                        ) : (
+                          "Create Playlist"
+                        )}
+                      </Button>
                     </DialogTrigger>
                     <DialogContent className="z-[101]">
                       {!playlistCreated && !playlistError ? (
@@ -961,10 +993,10 @@ export default function Index() {
                           </DialogHeader>
                           <AddPlaylistForm
                             recommendations={recommendedPlaylist}
-                            setIsLoading={setIsLoading}
                             setPlaylistCreated={setPlaylistCreated}
                             setPlaylistError={setPlaylistError}
                             setPlaylistUrl={setPlaylistUrl}
+                            setCreatePlaylistJob={setFetchCreatePlaylistJob}
                           />
                         </div>
                       ) : null}
@@ -1027,13 +1059,10 @@ export default function Index() {
                         key={`track-feature-track-${track.id}`}
                         title={track.name}
                         image={{
-                          src: track.album.images[0]?.url,
-                          alt: `Image for ${track.album.name}`,
+                          src: track.cover,
+                          alt: `Image for ${track.name}`,
                         }}
-                        url={track.uri}
-                        description={track.artists
-                          .map((artist) => artist.name)
-                          .join(", ")}
+                        url={track.spotifyUri}
                       />
                     );
                   })}

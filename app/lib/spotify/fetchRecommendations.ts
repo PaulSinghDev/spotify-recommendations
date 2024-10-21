@@ -1,6 +1,6 @@
 import { SpotifyTrackType } from "~/types/spotify";
 
-export const getRecommendations = async (
+export const fetchRecommendations = async (
   queryString: URLSearchParams,
   accessToken: string
 ) => {

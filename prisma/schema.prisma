@@ -17,12 +17,46 @@ model User {
   playlists Playlist[]
   tracks    Track[]
   artists   Artist[]
+  jobs      Job[]
+}
+
+enum PlaylistStatus {
+  LOADING
+  READY
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum JobType {
+  CREATE_PLAYLIST
+  GET_DATA
+  GET_RECOMMENDATIONS
+}
+
+model Job {
+  id        String   @id @default(uuid())
+  created   DateTime @default(now())
+  updated   DateTime @updatedAt @default(now())
+  creatorId String
+  creator   User     @relation(fields: [creatorId], references: [id])
+  status    JobStatus
+  statusMsg String?
+  type      JobType
+  progress  Int
+  retries   Int      @default(0)
+  data      Json?
 }
 
 model Playlist {
   id        String   @id @default(uuid())
   name      String
-  created   DateTime @default(now())
+  status    PlaylistStatus @default(LOADING)
+  created   DateTime       @default(now())
   cover     String
   url       String?
   isPrivate Boolean

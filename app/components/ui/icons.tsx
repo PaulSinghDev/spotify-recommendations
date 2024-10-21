@@ -67,6 +67,7 @@ import {
   Ungroup,
   WrapText,
   X,
+  Loader2,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -180,6 +181,7 @@ export const Icons = {
   borderNone,
   borderRight,
   borderTop,
+  spinner: Loader2,
   calendar: Calendar,
   check: Check,
   chevronRight: ChevronRight,

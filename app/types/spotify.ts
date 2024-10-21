@@ -1,3 +1,5 @@
+import { JobStatus } from "@prisma/client";
+
 export type SpotifyTopTracksResponse = {
   href: string;
   limit: number;
@@ -209,4 +211,8 @@ export type SpotifyCreatePlaylistResponse = {
   };
   type: string;
   uri: string;
+};
+
+export const isJobStatus = (status: string): status is JobStatus => {
+  return Object.values(JobStatus).includes(status as JobStatus);
 };

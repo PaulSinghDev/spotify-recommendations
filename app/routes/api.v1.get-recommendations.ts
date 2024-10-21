@@ -5,7 +5,7 @@ import {
 } from "@remix-run/node";
 import { addArtistsToDb } from "~/lib/spotify/addArtistsToDb";
 import { addTracksToDb } from "~/lib/spotify/addTracksToDb";
-import { getRecommendations } from "~/lib/spotify/getRecommendations";
+import { fetchRecommendations } from "~/lib/spotify/fetchRecommendations";
 import { spotifyStrategy } from "~/services/auth.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -24,7 +24,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // We need to pass artist IDs to the spotify route
   const params = new URL(request.url).searchParams;
 
-  const data = await getRecommendations(params, session.accessToken);
+  const data = await fetchRecommendations(params, session.accessToken);
 
   // Get the artist IDs from the new tracks
   const artistIds = data
